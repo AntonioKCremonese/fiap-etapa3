@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  scheduling:
+  scheduling-db:
     image: mysql:8.0
     container_name: mysql_container
     restart: always
@@ -16,7 +16,13 @@ services:
       - app-network
     volumes:
       - mysql_data_scheduling:/var/lib/mysql
-  notification:
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  notification-db:
     image: mysql:8.0
     container_name: mysql_notification_container
     restart: always
@@ -31,15 +37,62 @@ services:
       - app-network
     volumes:
       - mysql_data_notification:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   rabbitmq:
-      image: rabbitmq:3-management
-      container_name: rabbitmq
-      ports:
-        - "5672:5672"      # Porta para aplicações
-        - "15672:15672"    # Porta do painel web
-      environment:
-        RABBITMQ_DEFAULT_USER: guest
-        RABBITMQ_DEFAULT_PASS: guest
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - app-network
+
+  scheduling-app:
+    build:
+      context: ./fiap-hosp-scheduling
+    container_name: scheduling_app
+    depends_on:
+      scheduling-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_container:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_RABBITMQ_HOST: rabbitmq
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"
+
+  notification-app:
+    build:
+      context: ./notification
+    container_name: notification_app
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_notification_container:3306/${MYSQL_NOTIFICATION_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_RABBITMQ_HOST: rabbitmq
+    networks:
+      - app-network
+    ports:
+      - "8081:8080"
+
 volumes:
   mysql_data_scheduling:
   mysql_data_notification:
