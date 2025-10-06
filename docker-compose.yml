@@ -56,47 +56,35 @@ services:
       - app-network
 
   scheduling-app:
-    build:
-      context: ./fiap-hosp-scheduling
-    container_name: scheduling_app
+    build: ./fiap-hosp-scheduling
     depends_on:
-      scheduling-db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_started
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_container:3306/${MYSQL_DATABASE}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
-      SPRING_RABBITMQ_HOST: rabbitmq
+      - scheduling-db
     networks:
       - app-network
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://scheduling-db:3306/${MYSQL_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "8080:8080"
 
   notification-app:
-    build:
-      context: ./notification
-    container_name: notification_app
+    build: ./notification
     depends_on:
-      notification-db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_started
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql_notification_container:3306/${MYSQL_NOTIFICATION_DATABASE}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
-      SPRING_RABBITMQ_HOST: rabbitmq
+      - notification-db
     networks:
       - app-network
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://notification-db:3306/${MYSQL_NOTIFICATION_DATABASE}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "8081:8080"
-
-volumes:
-  mysql_data_scheduling:
-  mysql_data_notification:
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  mysql_data_scheduling:
+  mysql_data_notification:
